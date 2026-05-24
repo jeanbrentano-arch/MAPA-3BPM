@@ -512,19 +512,24 @@ function acCandidates() {
   return [...fromEf, ...fromManual];
 }
 
-function buildAcInput(uid_ac, currentVal, onSelectFn, onTypeFn, placeholder) {
+// ============ AUTOCOMPLETE — registro global de callbacks ============
+const _acCallbacks = {}; // uid_ac → { onSelect, onType }
+
+function buildAcInput(uid_ac, currentVal, onSelectCb, onTypeCb, placeholder) {
+  // Registra callbacks reais (sem eval)
+  _acCallbacks[uid_ac] = { onSelect: onSelectCb, onType: onTypeCb };
   const candidates = acCandidates();
   const found = candidates.find(c => c.id === currentVal);
+  // displayVal: se currentVal é um ID conhecido, mostra o nome; caso contrário mostra o próprio valor (texto manual)
   const displayVal = found ? found.label : (currentVal || '');
   return `<div class="ac-wrap" id="ac-wrap-${uid_ac}">
-    <input class="ac-input" id="ac-inp-${uid_ac}" value="${displayVal.replace(/"/g,'&quot;')}"
+    <input class="ac-input" id="ac-inp-${uid_ac}"
+      value="${displayVal.replace(/"/g,'&quot;')}"
       placeholder="${placeholder||'Digite para buscar…'}"
       autocomplete="off"
       oninput="onAcInput('${uid_ac}')"
-      onfocus="onAcInput('${uid_ac}')"
       onblur="onAcBlur('${uid_ac}')"
-      onkeydown="onAcKey(event,'${uid_ac}')"
-      data-onfn="${onSelectFn}" data-typefn="${onTypeFn}">
+      onkeydown="onAcKey(event,'${uid_ac}')">
     <div class="ac-list" id="ac-list-${uid_ac}"></div>
   </div>`;
 }
@@ -533,27 +538,28 @@ function onAcBlur(uid_ac) {
   setTimeout(() => {
     const list = document.getElementById('ac-list-'+uid_ac);
     if(list) list.classList.remove('open');
-    // Do NOT call typefn here — it would re-render and wipe the field.
-    // Free-typed values are already saved on every keystroke via oninput.
   }, 200);
 }
 
 function onAcInput(uid_ac) {
   const inp = document.getElementById('ac-inp-'+uid_ac);
   if(!inp) return;
-  const q = inp.value.toLowerCase();
-  const candidates = acCandidates();
-  const matches = candidates.filter(c => c.label.toLowerCase().includes(q)).slice(0,12);
+  const q = inp.value.toLowerCase().trim();
   const list = document.getElementById('ac-list-'+uid_ac);
   if(!list) return;
-  if(!q || !matches.length) { list.classList.remove('open'); return; }
-  list.innerHTML = matches.map((c,i) =>
-    `<div class="ac-item" data-idx="${i}" data-id="${c.id||''}" data-label="${c.label.replace(/"/g,'&quot;')}"
-      onmousedown="onAcSelect('${uid_ac}','${c.id||''}','${c.label.replace(/'/g,"\\'")}')">
+  if(!q) { list.classList.remove('open'); return; }
+  const candidates = acCandidates();
+  const matches = candidates.filter(c => c.label.toLowerCase().includes(q)).slice(0,12);
+  if(!matches.length) { list.classList.remove('open'); return; }
+  list.innerHTML = matches.map((c,i) => {
+    const safeLabel = c.label.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+    const safeId = (c.id||'').replace(/'/g,'&#39;');
+    return `<div class="ac-item" data-idx="${i}" data-id="${safeId}" data-label="${safeLabel}"
+      onmousedown="onAcSelect('${uid_ac}',this.dataset.id,this.dataset.label)">
       ${c.grad?`<span class="ac-badge ${gradClass(c.grad)}">${c.grad}</span>`:'<span class="ac-badge b-sd">✏</span>'}
       <span>${c.label}</span>
-    </div>`
-  ).join('');
+    </div>`;
+  }).join('');
   list.classList.add('open');
 }
 
@@ -562,9 +568,8 @@ function onAcSelect(uid_ac, id, label) {
   if(inp) inp.value = label;
   const list = document.getElementById('ac-list-'+uid_ac);
   if(list) list.classList.remove('open');
-  // call the registered callback
-  const fn = inp && inp.dataset.onfn;
-  if(fn) { try { eval(fn+'("'+id+'","'+label.replace(/"/g,'\\"')+'")'); } catch(e){} }
+  const cb = _acCallbacks[uid_ac];
+  if(cb && cb.onSelect) cb.onSelect(id, label);
 }
 
 function onAcKey(e, uid_ac) {
@@ -573,18 +578,35 @@ function onAcKey(e, uid_ac) {
   const items = list.querySelectorAll('.ac-item');
   let active = list.querySelector('.ac-item.active');
   let idx = active ? parseInt(active.dataset.idx) : -1;
-  if(e.key==='ArrowDown'){e.preventDefault();if(active)active.classList.remove('active');idx=Math.min(idx+1,items.length-1);items[idx]&&items[idx].classList.add('active');}
-  else if(e.key==='ArrowUp'){e.preventDefault();if(active)active.classList.remove('active');idx=Math.max(idx-1,0);items[idx]&&items[idx].classList.add('active');}
-  else if(e.key==='Enter'){e.preventDefault();if(active){const id=active.dataset.id;const label=active.dataset.label;onAcSelect(uid_ac,id,label);} else {
-    // free text entered — save as manual name
-    const inp=document.getElementById('ac-inp-'+uid_ac);
-    if(inp&&inp.value.trim()){registerManualName(inp.value);const fn=inp.dataset.typefn;if(fn)try{eval(fn+'("'+inp.value.replace(/"/g,'\\"')+'")');}catch(ex){}  }
+  if(e.key==='ArrowDown'){
+    e.preventDefault();
+    if(active) active.classList.remove('active');
+    idx = Math.min(idx+1, items.length-1);
+    if(items[idx]) items[idx].classList.add('active');
+  } else if(e.key==='ArrowUp'){
+    e.preventDefault();
+    if(active) active.classList.remove('active');
+    idx = Math.max(idx-1, 0);
+    if(items[idx]) items[idx].classList.add('active');
+  } else if(e.key==='Enter'){
+    e.preventDefault();
+    if(active) {
+      onAcSelect(uid_ac, active.dataset.id, active.dataset.label);
+    } else {
+      // texto livre confirmado com Enter
+      const inp = document.getElementById('ac-inp-'+uid_ac);
+      if(inp && inp.value.trim()) {
+        const cb = _acCallbacks[uid_ac];
+        if(cb && cb.onType) cb.onType(inp.value.trim());
+      }
+      list.classList.remove('open');
+    }
+  } else if(e.key==='Escape'){
     list.classList.remove('open');
-  }}
-  else if(e.key==='Escape'){list.classList.remove('open');}
+  }
 }
 
-// Close dropdowns on outside click
+// Fecha dropdowns ao clicar fora
 document.addEventListener('click', e => {
   if(!e.target.closest('.ac-wrap'))
     document.querySelectorAll('.ac-list').forEach(l=>l.classList.remove('open'));
@@ -597,28 +619,19 @@ function efField(vId, campo) {
   const isManual = v && v[campo+'Manual'];
   const acId = 'ef-'+vId+'-'+campo;
 
+  const onSelect = (id, label) => onEfAcSelect(vId, campo, id, label);
+  const onType   = (val) => onEfManualType(vId, campo, val);
+
   if (isManual) {
-    // Manual text input with autocomplete
     const manualVal = v && v[campo+'Txt'] ? v[campo+'Txt'] : '';
-    const onSelectFn = `acEfSelect_${vId}_${campo}`;
-    const onTypeFn   = `acEfType_${vId}_${campo}`;
     return `<div class="ef-field">
-      ${buildAcInput(acId, manualVal,
-        `function acEfSelect_${vId}_${campo}(id,label){onEfAcSelect('${vId}','${campo}',id,label)}`,
-        `function acEfType_${vId}_${campo}(val){onEfManualType('${vId}','${campo}',val)}`,
-        'Digite o nome…'
-      )}
+      ${buildAcInput(acId, manualVal, onSelect, onType, 'Digite o nome…')}
       <span class="ef-toggle" onclick="toggleEfMode('${vId}','${campo}',false)">↩ Selecionar da escala</span>
     </div>`;
   }
-  // Autocomplete backed by efetivo
   const curId = v && v[campo] ? v[campo] : '';
   return `<div class="ef-field">
-    ${buildAcInput(acId, curId,
-      `function acEfSelect_${vId}_${campo}(id,label){onEfAcSelect('${vId}','${campo}',id,label)}`,
-      `function acEfType_${vId}_${campo}(val){onEfManualType('${vId}','${campo}',val)}`,
-      'Digite para buscar…'
-    )}
+    ${buildAcInput(acId, curId, onSelect, onType, 'Digite para buscar…')}
     <span class="ef-toggle" onclick="toggleEfMode('${vId}','${campo}',true)">✏️ Digitar manualmente</span>
   </div>`;
 }
@@ -626,12 +639,13 @@ function efField(vId, campo) {
 function onEfAcSelect(vId, campo, id, label) {
   const v = viaturas.find(x=>x.id===vId); if(!v) return;
   if(id) {
-    v[campo] = id; v[campo+'Txt'] = '';
+    v[campo] = id; v[campo+'Txt'] = ''; v[campo+'Manual'] = false;
   } else {
-    // manual name selected from saved list
     v[campo] = ''; v[campo+'Manual'] = true; v[campo+'Txt'] = label;
     registerManualName(label);
   }
+  // Garante que o slot do 2º patrulheiro permaneça visível após seleção
+  if(campo === 'patId2') v.pat2Enabled = true;
   if(campo==='cmdId' && id) {
     const ef = efetivo.find(e=>e.id===id);
     if(ef){ const tel=ef.tel||phones[ef.nome]||''; v.contato=tel; const el=document.getElementById('cont-'+vId); if(el)el.value=tel; }
@@ -641,9 +655,11 @@ function onEfAcSelect(vId, campo, id, label) {
 
 function onEfManualType(vId, campo, val) {
   const v = viaturas.find(x=>x.id===vId); if(!v) return;
+  // Se já há um ID selecionado via autocomplete, não sobrescrever com texto livre
+  if(v[campo] && !v[campo+'Manual']) return;
   v[campo+'Txt'] = val; v[campo+'Manual'] = true;
   if(val.trim()) registerManualName(val);
-  saveViaturas(); // save only, no re-render
+  saveViaturas();
 }
 
 // ============ PATRULHEIRO DUPLO ============

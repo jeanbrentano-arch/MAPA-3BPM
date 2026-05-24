@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -6,6 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Dashboard Viaturas 3º BPM</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+</script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Segoe UI',sans-serif;background:#0d1117;color:#e6edf3;min-height:100vh}
@@ -28,6 +31,32 @@ label{font-size:.77rem;color:#8b949e;display:block;margin-bottom:3px}
 input,select,textarea{width:100%;background:#0d1117;border:1px solid #30363d;border-radius:6px;color:#e6edf3;padding:7px 10px;font-size:.83rem;outline:none;transition:border .2s}
 input:focus,select:focus{border-color:#58a6ff}
 select option{background:#161b22}
+
+/* Estilo das Áreas de Drop (Arrastar PDF) */
+.upload-container {
+  background: #11161d;
+  border: 2px dashed #30363d;
+  border-radius: 6px;
+  padding: 18px;
+  text-align: center;
+  margin-bottom: 15px;
+  cursor: pointer;
+  transition: border-color 0.2s, background-color 0.2s;
+}
+.upload-container:hover, .upload-container.dragover {
+  border-color: #58a6ff;
+  background: #1c232b;
+}
+.upload-container p {
+  font-size: 0.83rem;
+  color: #8b949e;
+}
+.upload-container .browse-btn {
+  color: #58a6ff;
+  text-decoration: underline;
+  font-weight: 600;
+}
+
 .btn{padding:8px 16px;border-radius:6px;border:none;cursor:pointer;font-size:.82rem;font-weight:600;transition:all .2s;display:inline-flex;align-items:center;gap:5px}
 .btn-primary{background:#1e4a7a;color:#58a6ff;border:1px solid #1e6ab5}.btn-primary:hover{background:#1e6ab5}
 .btn-success{background:#1a3a2a;color:#3fb950;border:1px solid #238636}.btn-success:hover{background:#238636;color:#fff}
@@ -36,7 +65,6 @@ select option{background:#161b22}
 .btn-sm{padding:4px 10px;font-size:.73rem}
 .btn-full{width:100%;justify-content:center;margin-top:8px}
 .btn:disabled{opacity:.4;cursor:not-allowed}
-/* LISTAS */
 .item-list{display:flex;flex-direction:column;gap:5px;max-height:340px;overflow-y:auto}
 .item-row{display:flex;align-items:center;gap:8px;background:#0d1117;border:1px solid #30363d;border-radius:6px;padding:7px 10px;font-size:.81rem}
 .item-row .nome{flex:1;font-weight:600}
@@ -46,7 +74,6 @@ select option{background:#161b22}
 .b-sgt{background:#1a3a2a;color:#3fb950}
 .b-cb{background:#3a2a1a;color:#d29922}
 .b-sd{background:#2a1a3a;color:#bc8cff}
-/* VIATURAS */
 .v-card{background:#0d1117;border:1px solid #30363d;border-radius:8px;padding:14px;margin-bottom:10px}
 .v-header{display:flex;align-items:center;gap:8px;margin-bottom:10px}
 .pref-badge{background:#1e4a7a;color:#58a6ff;padding:4px 14px;border-radius:20px;font-weight:700;font-size:.9rem}
@@ -55,7 +82,6 @@ select option{background:#161b22}
 .g-gtop{background:#1e3a5f;color:#79c0ff}.g-out{background:#2a1a3a;color:#bc8cff}
 .v-grid{display:grid;grid-template-columns:1.3fr 1.3fr 1.3fr 1fr 0.8fr 1.6fr 1fr;gap:8px}
 @media(max-width:960px){.v-grid{grid-template-columns:1fr 1fr 1fr}}
-/* TABELA */
 .tbl-wrap{overflow-x:auto}
 table.esc{width:100%;border-collapse:collapse;font-size:.77rem}
 table.esc th{background:#1e4a7a;color:#e6edf3;padding:8px 10px;text-align:left;border:1px solid #30363d;white-space:nowrap}
@@ -63,44 +89,34 @@ table.esc td{padding:7px 10px;border:1px solid #30363d;vertical-align:top}
 table.esc tr:hover td{background:#161b22}
 .grp-row td{background:#1e3a2a;color:#3fb950;font-weight:700;text-align:center;font-size:.79rem;letter-spacing:1px}
 .pref-cell{font-weight:700;color:#58a6ff}
-/* GRID helpers */
 .g2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
-/* STATS */
 .stats{display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap}
 .stat{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:10px 18px;flex:1;min-width:100px;text-align:center}
 .stat .n{font-size:1.5rem;font-weight:700;color:#58a6ff}
 .stat .l{font-size:.73rem;color:#8b949e}
-/* TOAST */
 .toast{position:fixed;bottom:20px;right:20px;padding:10px 18px;border-radius:8px;font-size:.83rem;z-index:9999;opacity:0;transition:opacity .3s;pointer-events:none}
 .toast.show{opacity:1}
 .text-muted{color:#8b949e;font-size:.77rem}
 .mt8{margin-top:8px}
-/* CAMPO EFETIVO COM MODO MANUAL */
 .ef-field{display:flex;flex-direction:column;gap:3px}
 .ef-toggle{font-size:.68rem;color:#58a6ff;cursor:pointer;text-align:right;user-select:none;opacity:.8}
 .ef-toggle:hover{text-decoration:underline;opacity:1}
-/* AUTOCOMPLETE */
 .ac-wrap{position:relative}
 .ac-input{width:100%;background:#0d1117;border:1px solid #30363d;border-radius:6px;color:#e6edf3;padding:7px 10px;font-size:.83rem;outline:none;transition:border .2s}
 .ac-input:focus{border-color:#58a6ff}
 .ac-list{position:absolute;top:100%;left:0;right:0;background:#161b22;border:1px solid #30363d;border-radius:0 0 6px 6px;max-height:200px;overflow-y:auto;z-index:200;display:none}
 .ac-list.open{display:block}
-.ac-item{padding:7px 10px;font-size:.8rem;cursor:pointer;display:flex;align-items:center;gap:6px;border-bottom:1px solid #21262d}
+.ac-item{padding:7px 10px;font-size:#0d1f35;cursor:pointer;display:flex;align-items:center;gap:6px;border-bottom:1px solid #21262d}
 .ac-item:last-child{border-bottom:none}
 .ac-item:hover,.ac-item.active{background:#0d1f35}
 .ac-item .ac-badge{font-size:.65rem;padding:2px 6px;border-radius:10px;flex-shrink:0}
-/* PAT DUPLO */
 .pat-slot{display:flex;flex-direction:column;gap:4px}
 .pat-slot .pat-entry{display:flex;align-items:center;gap:4px}
 .pat-slot .pat-entry .ac-wrap{flex:1}
 .pat-remove-btn{background:none;border:none;color:#f85149;cursor:pointer;font-size:.85rem;padding:0 3px;opacity:.7}
 .pat-remove-btn:hover{opacity:1}
-/* OS MANUAL */
-.os-manual-wrap{display:flex;flex-direction:column;gap:3px}
-/* TABELA FORA DO HORÁRIO */
 .out-of-service td{color:#f85149 !important;font-weight:700}
 .out-of-service .pref-cell{color:#ff6b6b !important}
-/* MULTI-OS */
 .os-tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px;min-height:0}
 .os-tag{display:inline-flex;align-items:center;gap:4px;background:#1e3a5f;color:#79c0ff;border-radius:20px;padding:2px 8px;font-size:.7rem;font-weight:600}
 .os-tag button{background:none;border:none;color:#79c0ff;cursor:pointer;padding:0;font-size:.75rem;line-height:1;opacity:.7}
@@ -114,8 +130,7 @@ table.esc tr:hover td{background:#161b22}
 .os-opt input[type=checkbox]{accent-color:#58a6ff;width:13px;height:13px;flex-shrink:0}
 ::-webkit-scrollbar{width:5px;height:5px}::-webkit-scrollbar-track{background:#0d1117}::-webkit-scrollbar-thumb{background:#30363d;border-radius:3px}
 </style>
-</head>
-<body>
+</head><body>
 
 <header>
   <span style="font-size:1.5rem">🚓</span>
@@ -135,12 +150,16 @@ table.esc tr:hover td{background:#161b22}
 
 <div class="content">
 
-<!-- ===== PASSO 1: EFETIVO ===== -->
 <div id="sec0" class="section active">
+  <div class="upload-container" id="drop-zone-efetivo">
+    <p>📄 Arraste e solte o **PDF da Escala Diária** aqui ou <span class="browse-btn">procure no computador</span></p>
+    <input type="file" id="file-efetivo" accept=".pdf" style="display:none">
+  </div>
+
   <div class="g2">
     <div>
       <div class="card">
-        <h3>➕ Adicionar Policial</h3>
+        <h3>➕ Adicionar Policial Manualmente</h3>
         <div class="g2" style="margin-bottom:8px">
           <div><label>Graduação</label>
             <select id="ef-grad" onchange="onGradChange(this)">
@@ -178,12 +197,16 @@ table.esc tr:hover td{background:#161b22}
   </div>
 </div>
 
-<!-- ===== PASSO 2: OS ===== -->
 <div id="sec1" class="section">
+  <div class="upload-container" id="drop-zone-os">
+    <p>📋 Arraste e solte o **PDF de Ordens de Serviço (OS)** aqui ou <span class="browse-btn">procure no computador</span></p>
+    <input type="file" id="file-os" accept=".pdf" style="display:none">
+  </div>
+
   <div class="g2">
     <div>
       <div class="card">
-        <h3>➕ Adicionar Ordem de Serviço</h3>
+        <h3>➕ Adicionar Ordem de Serviço Manualmente</h3>
         <div style="margin-bottom:8px"><label>Número da OS <span style="color:#8b949e;font-weight:400">(opcional)</span></label><input id="os-num" placeholder="2026.00003.0300"></div>
         <div style="margin-bottom:8px"><label>Descrição / Evento <span style="color:#8b949e;font-weight:400">(opcional)</span></label><input id="os-desc" placeholder="CHORO NO EIXO"></div>
         <div class="g2" style="margin-bottom:8px">
@@ -205,7 +228,6 @@ table.esc tr:hover td{background:#161b22}
   </div>
 </div>
 
-<!-- ===== PASSO 3: VIATURAS ===== -->
 <div id="sec2" class="section">
   <div class="card" style="margin-bottom:10px">
     <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
@@ -229,7 +251,6 @@ table.esc tr:hover td{background:#161b22}
   <div id="v-container"></div>
 </div>
 
-<!-- ===== PASSO 4: TABELA ===== -->
 <div id="sec3" class="section">
   <div class="card" style="margin-bottom:12px">
     <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
@@ -248,11 +269,10 @@ table.esc tr:hover td{background:#161b22}
   </div>
 </div>
 
-</div><!-- /content -->
+</div>
 <div class="toast" id="toast"></div>
 
 <script>
-// ============ CADASTRO PRÉVIO (escala 24/05/2026) ============
 const CADASTRO_PREVIO = [
   {grad:'2º SGT', nome:'LONDE',           mat:'215.000/X'},
   {grad:'SD',     nome:'R. BUENO',        mat:'738.248/0'},
@@ -280,13 +300,11 @@ const CADASTRO_PREVIO = [
   {grad:'CB',     nome:'BRENTANO',        mat:'735.462/2'},
 ];
 
-// ============ STATE ============
 let phones   = JSON.parse(localStorage.getItem('pmdf_phones')   || '{}');
 let efetivo  = JSON.parse(localStorage.getItem('pmdf_efetivo')  || 'null');
 let ordens   = JSON.parse(localStorage.getItem('pmdf_ordens')   || '[]');
 let viaturas = JSON.parse(localStorage.getItem('pmdf_viaturas') || '[]');
 
-// Se nunca houve efetivo salvo, carrega o cadastro prévio
 if (!efetivo) {
   efetivo = CADASTRO_PREVIO.map(p => ({
     id: uid(), grad: p.grad, nome: p.nome, mat: p.mat,
@@ -301,7 +319,6 @@ function saveEfetivo() { localStorage.setItem('pmdf_efetivo',  JSON.stringify(ef
 function saveOrdens()  { localStorage.setItem('pmdf_ordens',   JSON.stringify(ordens)); }
 function saveViaturas(){ localStorage.setItem('pmdf_viaturas', JSON.stringify(viaturas)); }
 
-// ============ UTILS ============
 function toast(msg, tipo='success') {
   const t = document.getElementById('toast');
   t.textContent = msg;
@@ -311,21 +328,19 @@ function toast(msg, tipo='success') {
 function gradClass(g) {
   if(!g) return 'b-sd';
   const u = g.toUpperCase();
-  if(u.includes('TEN')||u==='CAP') return 'b-of';
+  if(u.includes('TEN')||u==='CAP'||u==='MAJ'||u==='CEL') return 'b-of';
   if(u==='ST'||u.includes('SGT')) return 'b-sgt';
   if(u==='CB') return 'b-cb';
   return 'b-sd';
 }
 function nomeCompleto(e) { return e ? `${e.grad} ${e.nome}` : ''; }
 
-// Header date
 (function(){
   const d = new Date();
   document.getElementById('hdate').textContent = d.toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'2-digit',year:'numeric'});
   document.getElementById('data-esc').valueAsDate = d;
 })();
 
-// ============ GRADUAÇÃO — ordem hierárquica (mais antiga → mais moderna) ============
 const GRAD_ORDER = ['CEL','TEN-CEL','MAJ','CAP','1º TEN','2º TEN','ST','1º SGT','2º SGT','3º SGT','CB','SD'];
 function gradRank(g) {
   const i = GRAD_ORDER.indexOf(g);
@@ -335,7 +350,6 @@ function efOrdenado() {
   return [...efetivo].sort((a,b) => gradRank(a.grad) - gradRank(b.grad));
 }
 
-// ============ NOVA GRADUAÇÃO ============
 function onGradChange(sel) {
   const nova = document.getElementById('ef-grad-nova');
   if(sel.value === '__nova__') { nova.style.display='block'; nova.focus(); nova.value=''; }
@@ -343,19 +357,16 @@ function onGradChange(sel) {
 }
 function syncNovaGrad(val) {
   const sel = document.getElementById('ef-grad');
-  // garante que addEfetivo() leia o valor digitado
   sel.dataset.novaGrad = val.trim().toUpperCase();
 }
 function getGradValue() {
   const sel = document.getElementById('ef-grad');
   if(sel.value === '__nova__') {
-    const v = (sel.dataset.novaGrad || document.getElementById('ef-grad-nova').value.trim().toUpperCase());
-    return v;
+    return (sel.dataset.novaGrad || document.getElementById('ef-grad-nova').value.trim().toUpperCase());
   }
   return sel.value;
 }
 
-// ============ NOVO GRUPO ============
 function onGrupoChange(sel) {
   const nova = document.getElementById('v-grupo-novo');
   if(sel.value === '__novo__') { nova.style.display='block'; nova.focus(); nova.value=''; sel.dataset.novoGrupo=''; }
@@ -378,7 +389,184 @@ function goStep(n) {
   }
 }
 
-// ============ EFETIVO ============
+// ==========================================
+// FUNÇÕES DE EXTRAÇÃO E LEITURA DE PDF
+// ==========================================
+
+async function lerTextoDoPDF(file) {
+  const arrayBuffer = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+  let textoCompleto = "";
+  
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i);
+    const textContent = await page.getTextContent();
+    const textoPagina = textContent.items.map(item => item.str).join(" ");
+    textoCompleto += textoPagina + "\n";
+  }
+  return textoCompleto;
+}
+
+function processarPDFEfetivo(texto) {
+  const regexPM = /(CEL|TEN-CEL|MAJ|CAP|1º\s*TEN|2º\s*TEN|ST|1º\s*SGT|2º\s*SGT|3º\s*SGT|CB|SD)\s+([A-ZÇÁÉÍÓÚÂÊÔÃÕÑ.\s\-]+?)\s+(\d[\d./-]*\d|[\d.]+-\w|\d+[\dX])/gi;
+  let matches;
+  let adicionados = 0;
+  const textoLimpo = texto.replace(/\s+/g, ' ');
+
+  while ((matches = regexPM.exec(textoLimpo)) !== null) {
+    let grad = matches[1].toUpperCase().replace(/\s+/g, '');
+    if(grad.includes('TEN') && !grad.includes('-')) grad = grad.replace('TEN', ' TEN');
+    if(grad.includes('SGT')) grad = grad.replace('SGT', ' SGT');
+
+    const nome = matches[2].trim().toUpperCase();
+    const mat = matches[3].trim();
+    
+    if (!efetivo.some(e => e.mat === mat)) {
+      efetivo.push({
+        id: uid(),
+        grad: grad,
+        nome: nome,
+        mat: mat,
+        tel: phones[nome] || ''
+      });
+      adicionados++;
+    }
+  }
+  
+  if (adicionados > 0) {
+    saveEfetivo();
+    renderEfetivo();
+    updateStats();
+    toast(`${adicionados} policiais importados da Escala com sucesso!`);
+  } else {
+    toast("Nenhum padrão de policial (Graduação Nome Matrícula) foi identificado no PDF.", "error");
+  }
+}
+
+// ATUALIZADA: Foca apenas no Número e no Evento (Descrição)
+function processarPDFOrdens(texto) {
+  const textoLimpo = texto.replace(/\s+/g, ' ');
+  
+  // Captura o padrão clássico de protocolo/OS da PMDF (ex: 2026.00003.0300)
+  const regexOS = /(\d{4}\.\d{4,5}\.\d{2,4})/g;
+  
+  let matches = [];
+  let match;
+  
+  while ((match = regexOS.exec(textoLimpo)) !== null) {
+    matches.push({ num: match[1], index: match.index });
+  }
+  
+  let adicionados = 0;
+  
+  if (matches.length > 0) {
+    for (let i = 0; i < matches.length; i++) {
+      const numeroOS = matches[i].num;
+      const inicioTexto = matches[i].index + numeroOS.length;
+      const fimTexto = (i + 1 < matches.length) ? matches[i + 1].index : inicioTexto + 180;
+      let trechoDescricao = textoLimpo.substring(inicioTexto, fimTexto).trim();
+      
+      // Limpa caracteres soltos comuns de quebras de tabelas logo após o número
+      trechoDescricao = trechoDescricao.replace(/^[:\-\s\.]+/g, '');
+      
+      let descricaoFinal = trechoDescricao.substring(0, 60).trim().toUpperCase();
+      
+      if (!ordens.some(o => o.num === numeroOS)) {
+        ordens.push({
+          id: uid(),
+          num: numeroOS,
+          desc: descricaoFinal || `MISSÃO OS ${numeroOS}`,
+          setor: '', // Limpo para inserção manual caso precise
+          obs: ''    // Limpo para inserção manual caso precise
+        });
+        adicionados++;
+      }
+    }
+  }
+  
+  if (adicionados > 0) {
+    saveOrdens();
+    renderOS();
+    toast(`${adicionados} Ordens de Serviço extraídas com sucesso!`);
+  } else {
+    // Fallback linha por linha caso o PDF use um layout diferente contendo o termo OS/ORDEM
+    const linhas = texto.split('\n').map(l => l.trim()).filter(l => l.length > 10 && (l.toUpperCase().includes('OS') || l.toUpperCase().includes('ORDEM')));
+    if (linhas.length > 0) {
+      let geradas = 0;
+      linhas.forEach(linha => {
+        if (!linha.toUpperCase().includes("DASHBOARD") && !linha.toUpperCase().includes("DISTRIBUIÇÃO")) {
+          ordens.push({
+            id: uid(),
+            num: "Ajustar",
+            desc: linha.substring(0, 55).toUpperCase(),
+            setor: "",
+            obs: ""
+          });
+          geradas++;
+        }
+      });
+      if (geradas > 0) {
+        saveOrdens();
+        renderOS();
+        toast(`${geradas} OS geradas para ajuste manual de número/evento.`, "warning");
+        return;
+      }
+    }
+    toast("Não foi possível identificar dados estruturados de OS no PDF.", "error");
+  }
+}
+
+function configurarDragAndDrop(zoneId, inputId, callbackProcessamento) {
+  const dropZone = document.getElementById(zoneId);
+  const fileInput = document.getElementById(inputId);
+  
+  dropZone.addEventListener('click', () => fileInput.click());
+  
+  fileInput.addEventListener('change', async (e) => {
+    if (e.target.files.length > 0) {
+      await executarLeitura(e.target.files[0], callbackProcessamento);
+    }
+  });
+  
+  dropZone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    dropZone.classList.add('dragover');
+  });
+  
+  dropZone.addEventListener('dragleave', () => {
+    dropZone.classList.remove('dragover');
+  });
+  
+  dropZone.addEventListener('drop', async (e) => {
+    e.preventDefault();
+    dropZone.classList.remove('dragover');
+    
+    if (e.dataTransfer.files.length > 0) {
+      const file = e.dataTransfer.files[0];
+      if (file.type !== "application/pdf" && !file.name.endsWith('.pdf')) {
+        toast("Por favor, envie apenas arquivos em formato PDF.", "error");
+        return;
+      }
+      await executarLeitura(file, callbackProcessamento);
+    }
+  });
+}
+
+async function executarLeitura(file, callback) {
+  toast("Processando arquivo PDF...");
+  try {
+    const texto = await lerTextoDoPDF(file);
+    callback(texto);
+  } catch (err) {
+    console.error(err);
+    toast("Erro ao interpretar o arquivo PDF.", "error");
+  }
+}
+
+// ==========================================
+// FUNÇÕES DE MANIPULAÇÃO DA INTERFACE (CRUD)
+// ==========================================
+
 function addEfetivo() {
   const grad = getGradValue();
   if(grad === '__nova__' || !grad){toast('Informe a graduação','error');return;}
@@ -421,11 +609,11 @@ function renderEfetivo() {
   const list = efOrdenado().filter(e=>e.nome.toLowerCase().includes(q)||e.grad.toLowerCase().includes(q));
   document.getElementById('ef-count').textContent = efetivo.length;
   const el = document.getElementById('ef-list');
-  if(!list.length){el.innerHTML='<p class="text-muted" style="padding:8px">Nenhum policial.</p>';return;}
+  if(!list.length){el.innerHTML='<p class="text-muted" style="padding:8px">Nenum policial.</p>';return;}
 
   const isOficial = e => ['CEL','TEN-CEL','MAJ','CAP','1º TEN','2º TEN'].includes(e.grad);
   const isStSgt   = e => e.grad==='ST' || e.grad.includes('SGT');
-  const isCbSd    = e => ['CB','SD'].includes(e.grad) || (!isOficial(e) && !isStSgt(e) && e.grad!=='ST');
+  const isCbSd    = e => ['CB','SD'].includes(e.grad) || (!isOficial(e) && !isStSgt(e));
 
   const divs = [
     { label: '— OFICIAIS —',  filter: isOficial },
@@ -451,18 +639,16 @@ function renderEfetivo() {
 }
 
 function updateStats() {
-  document.getElementById('st-of').textContent  = efetivo.filter(e=>['2º TEN','1º TEN','CAP'].includes(e.grad)).length;
+  document.getElementById('st-of').textContent  = efetivo.filter(e=>['CEL','TEN-CEL','MAJ','CAP','1º TEN','2º TEN'].includes(e.grad)).length;
   document.getElementById('st-sgt').textContent = efetivo.filter(e=>e.grad==='ST'||e.grad.includes('SGT')).length;
   document.getElementById('st-sd').textContent  = efetivo.filter(e=>['CB','SD'].includes(e.grad)).length;
 }
 
-// ============ OS ============
 function addOS() {
   const num   = document.getElementById('os-num').value.trim();
   const desc  = document.getElementById('os-desc').value.trim().toUpperCase();
   const setor = document.getElementById('os-setor').value.trim().toUpperCase();
   const obs   = document.getElementById('os-obs').value.trim();
-  // Nenhum campo obrigatório — gera label automático se vazio
   const label = desc || num || setor || obs || 'OS SEM DESCRIÇÃO';
   ordens.push({id:uid(), num, desc: desc||label, setor, obs});
   saveOrdens(); renderOS();
@@ -475,7 +661,7 @@ function clearOS(){if(!confirm('Limpar todas as OS?'))return;ordens=[];saveOrden
 
 function renderOS() {
   const q = (document.getElementById('os-search').value||'').toLowerCase();
-  const list = ordens.filter(o=>(o.desc+o.num+o.setor).toLowerCase().includes(q));
+  const list = ordens.filter(o=>(o.desc+o.num+(o.setor||'')).toLowerCase().includes(q));
   document.getElementById('os-count').textContent = ordens.length;
   const el = document.getElementById('os-list');
   if(!list.length){el.innerHTML='<p class="text-muted" style="padding:8px">Nenhuma OS cadastrada.</p>';return;}
@@ -489,10 +675,8 @@ function renderOS() {
     </div>`).join('');
 }
 
-// ============ VIATURAS ============
 const SETORES_LISTA = ['ALFA','BRAVO','CHARLIE','DELTA','ECHO','FOX','GOLF'];
 
-// ============ NOMES MANUAIS SALVOS ============
 let savedManualNames = JSON.parse(localStorage.getItem('pmdf_manual_names') || '[]');
 function saveManualNames() { localStorage.setItem('pmdf_manual_names', JSON.stringify(savedManualNames)); }
 function registerManualName(val) {
@@ -503,7 +687,6 @@ function registerManualName(val) {
   }
 }
 
-// ============ AUTOCOMPLETE HELPER ============
 function acCandidates() {
   const fromEf = efOrdenado().map(e => ({ id: e.id, label: nomeCompleto(e), grad: e.grad }));
   const fromManual = savedManualNames
@@ -512,15 +695,12 @@ function acCandidates() {
   return [...fromEf, ...fromManual];
 }
 
-// ============ AUTOCOMPLETE — registro global de callbacks ============
-const _acCallbacks = {}; // uid_ac → { onSelect, onType }
+const _acCallbacks = {};
 
 function buildAcInput(uid_ac, currentVal, onSelectCb, onTypeCb, placeholder) {
-  // Registra callbacks reais (sem eval)
   _acCallbacks[uid_ac] = { onSelect: onSelectCb, onType: onTypeCb };
   const candidates = acCandidates();
   const found = candidates.find(c => c.id === currentVal);
-  // displayVal: se currentVal é um ID conhecido, mostra o nome; caso contrário mostra o próprio valor (texto manual)
   const displayVal = found ? found.label : (currentVal || '');
   return `<div class="ac-wrap" id="ac-wrap-${uid_ac}">
     <input class="ac-input" id="ac-inp-${uid_ac}"
@@ -593,7 +773,6 @@ function onAcKey(e, uid_ac) {
     if(active) {
       onAcSelect(uid_ac, active.dataset.id, active.dataset.label);
     } else {
-      // texto livre confirmado com Enter
       const inp = document.getElementById('ac-inp-'+uid_ac);
       if(inp && inp.value.trim()) {
         const cb = _acCallbacks[uid_ac];
@@ -606,7 +785,6 @@ function onAcKey(e, uid_ac) {
   }
 }
 
-// Fecha dropdowns ao clicar fora
 document.addEventListener('click', e => {
   if(!e.target.closest('.ac-wrap'))
     document.querySelectorAll('.ac-list').forEach(l=>l.classList.remove('open'));
@@ -644,7 +822,6 @@ function onEfAcSelect(vId, campo, id, label) {
     v[campo] = ''; v[campo+'Manual'] = true; v[campo+'Txt'] = label;
     registerManualName(label);
   }
-  // Garante que o slot do 2º patrulheiro permaneça visível após seleção
   if(campo === 'patId2') v.pat2Enabled = true;
   if(campo==='cmdId' && id) {
     const ef = efetivo.find(e=>e.id===id);
@@ -655,26 +832,18 @@ function onEfAcSelect(vId, campo, id, label) {
 
 function onEfManualType(vId, campo, val) {
   const v = viaturas.find(x=>x.id===vId); if(!v) return;
-  // Se já há um ID selecionado via autocomplete, não sobrescrever com texto livre
   if(v[campo] && !v[campo+'Manual']) return;
   v[campo+'Txt'] = val; v[campo+'Manual'] = true;
   if(val.trim()) registerManualName(val);
   saveViaturas();
 }
 
-// ============ PATRULHEIRO DUPLO ============
 function patField(vId) {
   const v = viaturas.find(x=>x.id===vId);
-  const slots = [
-    { campo: 'patId',  manualCampo: 'patIdManual',  txtCampo: 'patIdTxt'  },
-    { campo: 'patId2', manualCampo: 'patId2Manual', txtCampo: 'patId2Txt' },
-  ];
   const hasPat2 = !!(v.pat2Enabled || v.patId2 || v.patId2Txt);
 
   let html = `<div class="pat-slot">`;
-  // Slot 1 — usa efField diretamente
   html += `<div class="pat-entry">${efField(vId,'patId')}</div>`;
-  // Slot 2
   if(hasPat2) {
     html += `<div class="pat-entry">
       <div style="flex:1">${efField(vId,'patId2')}</div>
@@ -707,13 +876,6 @@ function toggleEfMode(vId, campo, manual) {
   saveViaturas(); renderViaturas();
 }
 
-function onEfManual(vId, campo, val) {
-  const v = viaturas.find(x=>x.id===vId); if(!v) return;
-  v[campo+'Txt'] = val;
-  if(val.trim()) registerManualName(val);
-  saveViaturas();
-}
-
 function getEfNomeField(v, campo) {
   if (v[campo+'Manual']) return v[campo+'Txt'] || '—';
   return v[campo] ? getEfNome(v[campo]) : '—';
@@ -724,36 +886,6 @@ function getPatNomes(v) {
   const p2 = getEfNomeField(v, 'patId2');
   if(p2 && p2 !== '—') return p1+' / '+p2;
   return p1;
-}
-
-function setorField(vId) {
-  const v = viaturas.find(x=>x.id===vId);
-  const isManual = v && v.setorManual;
-  if (isManual) {
-    return `<div class="ef-field">
-      <input id="setor-manual-${vId}" value="${v.setor||''}" placeholder="Digite o setor…"
-        oninput="onVField('${vId}','setor',this.value)">
-      <span class="ef-toggle" onclick="toggleSetorManual('${vId}',false)">↩ Selecionar da lista</span>
-    </div>`;
-  }
-  const selected = v && v.setores ? v.setores : (v&&v.setor?[v.setor]:[]);
-  const tags = selected.map(s=>
-    `<span class="os-tag">${s}<button type="button" onclick="removeSetorTag('${vId}','${s}')">✕</button></span>`
-  ).join('');
-  const opts = SETORES_LISTA.map(s=>{
-    const chk = selected.includes(s)?'checked':'';
-    return `<div class="os-opt ${selected.includes(s)?'selected':''}" onclick="toggleSetorTag('${vId}','${s}')">
-      <input type="checkbox" ${chk} onclick="event.stopPropagation();toggleSetorTag('${vId}','${s}')"> ${s}
-    </div>`;
-  }).join('');
-  return `<div class="os-dropdown">
-    <input readonly placeholder="Clique para selecionar…" style="cursor:pointer"
-      onclick="toggleSetorDropdown('${vId}')" id="setor-inp-${vId}"
-      value="${selected.length?selected.join(', '):''}">
-    <div class="os-dropdown-list" id="setor-drop-${vId}">${opts}</div>
-    <div class="os-tags" id="setor-tags-${vId}">${tags}</div>
-    <span class="ef-toggle" onclick="toggleSetorManual('${vId}',true)">✏️ Digitar manualmente</span>
-  </div>`;
 }
 
 function toggleSetorManual(vId, manual) {
@@ -783,13 +915,6 @@ function toggleSetorTag(vId, setor) {
   if(tagsEl) tagsEl.innerHTML = v.setores.map(s=>
     `<span class="os-tag">${s}<button type="button" onclick="removeSetorTag('${vId}','${s}')">✕</button></span>`
   ).join('');
-  const drop = document.getElementById('setor-drop-'+vId);
-  if(drop) drop.querySelectorAll('.os-opt').forEach(opt=>{
-    const cb = opt.querySelector('input[type=checkbox]');
-    const m = opt.getAttribute('onclick').match(/'([^']+)'$/);
-    const s = m?m[1]:null;
-    if(cb&&s){cb.checked=v.setores.includes(s);opt.classList.toggle('selected',v.setores.includes(s));}
-  });
 }
 
 function removeSetorTag(vId, setor) { toggleSetorTag(vId, setor); }
@@ -806,7 +931,7 @@ function osMultiWidget(vId) {
   const selected = v.osIds || [];
   const tags = selected.map(id => {
     const o = ordens.find(x=>x.id===id); if(!o) return '';
-    const lbl = (o.num?o.num.split('.').pop()+' – ':'')+o.desc;
+    const lbl = (o.num && o.num !== 'Ajustar' ? o.num.split('.').pop()+' – ':'')+o.desc;
     return `<span class="os-tag">${lbl}<button type="button" onclick="removeOsTag('${vId}','${id}')">✕</button></span>`;
   }).join('');
   let opts = '';
@@ -814,7 +939,7 @@ function osMultiWidget(vId) {
     opts = `<div class="os-opt" style="color:#8b949e;cursor:default">Nenhuma OS cadastrada</div>`;
   } else {
     ordens.forEach(o=>{
-      const lbl = (o.num?o.num.split('.').pop()+' – ':'')+o.desc+(o.setor?' ['+o.setor+']':'')+(o.obs?' ('+o.obs+')':'');
+      const lbl = (o.num && o.num !== 'Ajustar' ? o.num.split('.').pop()+' – ':'')+o.desc+(o.setor?' ['+o.setor+']':'')+(o.obs?' ('+o.obs+')':'');
       const chk = selected.includes(o.id)?'checked':'';
       opts += `<div class="os-opt ${selected.includes(o.id)?'selected':''}" onclick="toggleOsTag('${vId}','${o.id}')">
         <input type="checkbox" ${chk} onclick="event.stopPropagation();toggleOsTag('${vId}','${o.id}')"> ${lbl}
@@ -857,38 +982,51 @@ function toggleOsTag(vId, osId) {
   const tagsEl = document.getElementById('os-tags-'+vId);
   if(tagsEl) tagsEl.innerHTML = sel.map(id=>{
     const o=ordens.find(x=>x.id===id);if(!o)return'';
-    const lbl=(o.num?o.num.split('.').pop()+' – ':'')+o.desc;
-    return `<span class="os-tag">${lbl}<button type="button" onclick="removeOsTag('${vId}','${id}')">✕</button></span>`;
+    const lbl=(o.num && o.num !== 'Ajustar' ? o.num.split('.').pop()+' – ':'')+o.desc;
+    return `<span class="os-tag">${lbl}<button type="button" onclick="removeOsTag('${vId}','${osId}')">✕</button></span>`;
   }).join('');
-  const drop=document.getElementById('os-drop-'+vId);
-  if(drop) drop.querySelectorAll('.os-opt').forEach(opt=>{
-    const cb=opt.querySelector('input[type=checkbox]');
-    const m=opt.getAttribute('onclick').match(/'([^']+)'$/);
-    const oid=m?m[1]:null;
-    if(cb&&oid){cb.checked=sel.includes(oid);opt.classList.toggle('selected',sel.includes(oid));}
-  });
 }
 
-function removeOsTag(vId,osId){toggleOsTag(vId,osId);renderViaturas();}
-
-function onEfChange(vId, campo, val) {
+function removeOsTag(vId,osId){
   const v = viaturas.find(x=>x.id===vId); if(!v) return;
-  v[campo] = val;
-  if(campo==='cmdId') {
-    const ef = efetivo.find(e=>e.id===val);
-    if(ef){
-      const tel = ef.tel||phones[ef.nome]||'';
-      v.contato=tel;
-      const el=document.getElementById('cont-'+vId);
-      if(el) el.value=tel;
-    }
-  }
-  saveViaturas();
+  if(!v.osIds) return;
+  v.osIds = v.osIds.filter(id => id !== osId);
+  saveViaturas(); renderViaturas();
 }
 
 function onVField(vId, campo, val) {
   const v = viaturas.find(x=>x.id===vId); if(!v) return;
   v[campo]=val; saveViaturas();
+}
+
+function setorField(vId) {
+  const v = viaturas.find(x=>x.id===vId);
+  const isManual = v && v.setorManual;
+  if (isManual) {
+    return `<div class="ef-field">
+      <input id="setor-manual-${vId}" value="${v.setor||''}" placeholder="Digite o setor…"
+        oninput="onVField('${vId}','setor',this.value)">
+      <span class="ef-toggle" onclick="toggleSetorManual('${vId}',false)">↩ Selecionar da lista</span>
+    </div>`;
+  }
+  const selected = v && v.setores ? v.setores : (v&&v.setor?[v.setor]:[]);
+  const tags = selected.map(s=>
+    `<span class="os-tag">${s}<button type="button" onclick="removeSetorTag('${vId}','${s}')">✕</button></span>`
+  ).join('');
+  const opts = SETORES_LISTA.map(s=>{
+    const chk = selected.includes(s)?'checked':'';
+    return `<div class="os-opt ${selected.includes(s)?'selected':''}" onclick="toggleSetorTag('${vId}','${s}')">
+      <input type="checkbox" ${chk} onclick="event.stopPropagation();toggleSetorTag('${vId}','${s}')"> ${s}
+    </div>`;
+  }).join('');
+  return `<div class="os-dropdown">
+    <input readonly placeholder="Clique para selecionar…" style="cursor:pointer"
+      onclick="toggleSetorDropdown('${vId}')" id="setor-inp-${vId}"
+      value="${selected.length?selected.join(', '):''}">
+    <div class="os-dropdown-list" id="setor-drop-${vId}">${opts}</div>
+    <div class="os-tags" id="setor-tags-${vId}">${tags}</div>
+    <span class="ef-toggle" onclick="toggleSetorManual('${vId}',true)">✏️ Digitar manualmente</span>
+  </div>`;
 }
 
 function addViatura() {
@@ -920,7 +1058,6 @@ function grpClass(g){
   if(g==='GTOP'||g==='GTM')return'g-gtop';return'g-out';
 }
 
-// ============ HORÁRIO POR GRUPO ============
 const HORARIOS_GRUPO = {
   'CPU':  ['24h'],
   'FOX':  ['24h'],
@@ -933,7 +1070,7 @@ function getHorarioOpts(grupo) {
   for(const [key,vals] of Object.entries(HORARIOS_GRUPO)){
     if(grupo && grupo.toUpperCase().includes(key)) return vals;
   }
-  return ['07 às 19h','19 às 07h']; // padrão
+  return ['07 às 19h','19 às 07h'];
 }
 
 function horarioField(vId) {
@@ -999,25 +1136,22 @@ function renderViaturas() {
   c.innerHTML=html;
 }
 
-// ============ TABELA FINAL ============
 function getEfNome(id){if(!id)return'—';const e=efetivo.find(x=>x.id===id);return e?nomeCompleto(e):'—';}
 
 function getOSlabel(v){
   if(v.osManualOn) return v.osManual || '—';
   let parts=[];
-  const ids=v.osIds||(v.osId?[v.osId]:[]);
+  const ids=v.osIds || [];
   ids.forEach(id=>{
     const o=ordens.find(x=>x.id===id);
-    if(o){let s='';s+=o.desc;if(o.num)s+='\nO.S '+o.num.split('.').pop();parts.push(s);}
+    if(o){let s='';s+=o.desc;if(o.num && o.num !== 'Ajustar')s+='\nO.S '+o.num.split('.').pop();parts.push(s);}
   });
   return parts.join('\n')||'—';
 }
 
-// ============ HORÁRIO — verifica se está fora do serviço ============
 function parseHorario(str) {
-  // Formatos: "07 às 19h", "19 às 07h", "15 às 03h", "24h", "04 às 12h", etc.
   if(!str) return null;
-  if(str.toLowerCase().includes('24h')) return null; // sempre ativo
+  if(str.toLowerCase().includes('24h')) return null;
   const m = str.match(/(\d{1,2})\s*[aà]\w*\s*(\d{1,2})/i);
   if(!m) return null;
   return { start: parseInt(m[1]), end: parseInt(m[2]) };
@@ -1025,7 +1159,7 @@ function parseHorario(str) {
 
 function isOutOfService(horario) {
   const range = parseHorario(horario);
-  if(!range) return false; // 24h ou indeterminado — nunca vermelho
+  if(!range) return false;
   const now = new Date();
   const h = now.getHours();
   const { start, end } = range;
@@ -1033,7 +1167,6 @@ function isOutOfService(horario) {
   if(start < end) {
     active = h >= start && h < end;
   } else {
-    // turno vira meia-noite: ex 19h–07h → ativo se h>=19 OR h<7
     active = h >= start || h < end;
   }
   return !active;
@@ -1053,7 +1186,7 @@ function renderTabela(){
       const cont=v.contato||(v.cmdId?(efetivo.find(e=>e.id===v.cmdId)||{}).tel||'—':'—');
       const oos = isOutOfService(v.horario);
       const rowClass = oos ? ' class="out-of-service"' : '';
-      const oosMark = oos ? ' ⚠ FORA DO SERVIÇO' : '';
+      const oosMark = oos ? ' ⚠ FORA' : '';
       h+=`<tr${rowClass}>
         <td class="pref-cell">${v.prefixo||'—'}</td>
         <td>${getEfNomeField(v,'cmdId')}</td>
@@ -1072,7 +1205,6 @@ function renderTabela(){
   document.getElementById('tabela-final').innerHTML=h;
 }
 
-// ============ EXPORT ============
 function exportExcel(){
   if(!viaturas.length){toast('Sem dados','error');return;}
   const rows=[['Prefixo','Comandante','Motorista','Patrulheiro','Contato','Setor','OS','Horário']];
@@ -1122,8 +1254,10 @@ function exportPDF(){
     ? new Date(document.getElementById('data-esc').value+'T12:00:00').toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'2-digit',year:'numeric'})
     : new Date().toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'2-digit',year:'numeric'});
   const tabelaHTML = document.getElementById('tabela-final').innerHTML;
-  const obs = document.getElementById('obs-final').value;
   const win = window.open('','_blank');
+  
+  let scriptCode = "document.querySelectorAll('table').forEach(t=>t.className=''); window.onload=function(){window.print();};";
+  
   win.document.write(`<!DOCTYPE html><html lang="pt-BR"><head>
   <meta charset="UTF-8">
   <title>Escala de Viaturas — 3º BPM/DF</title>
@@ -1141,7 +1275,6 @@ function exportPDF(){
     tr:nth-child(even) td{background:#f4f7fb}
     .grp-row td{background:#1e4a7a;color:#fff;font-weight:700;text-align:center;font-size:10px;letter-spacing:1px;padding:5px 8px}
     .pref-cell{font-weight:700;color:#1e4a7a}
-    .obs-row td{color:#7a5500;font-style:italic;background:#fffbe6}
     .footer{margin-top:14px;font-size:9px;color:#888;text-align:center;border-top:1px solid #ddd;padding-top:8px}
     @media print{
       body{padding:10px 14px}
@@ -1159,17 +1292,17 @@ function exportPDF(){
   </div>
   ${tabelaHTML}
   <div class="footer">Gerado automaticamente pelo Dashboard de Viaturas — 3º BPM/DF</div>
-  <script>
-    // Ajusta estilos da tabela para versão impressa
-    document.querySelectorAll('table').forEach(t=>t.className='');
-    window.onload=function(){window.print();}
-  <\/script>
+  <script>${scriptCode}<\/script>
   </body></html>`);
   win.document.close();
   toast('PDF aberto para impressão!');
 }
 
-// ============ INIT ============
+document.addEventListener("DOMContentLoaded", () => {
+  configurarDragAndDrop('drop-zone-efetivo', 'file-efetivo', processarPDFEfetivo);
+  configurarDragAndDrop('drop-zone-os', 'file-os', processarPDFOrdens);
+});
+
 renderEfetivo(); updateStats(); renderOS(); renderViaturas();
 </script>
 </body>
